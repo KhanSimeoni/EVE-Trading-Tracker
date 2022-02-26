@@ -30819,3 +30819,28 @@ libpng warning: known incorrect sRGB profile
 libpng warning: profile matches sRGB but writing iCCP instead
 file:///usr/share/plasma/shells/org.kde.plasma.desktop/contents/views/Panel.qml:15:1: QML Panel: Binding loop detected for property "state"
 file:///usr/share/plasma/shells/org.kde.plasma.desktop/contents/views/Panel.qml:15:1: QML Panel: Binding loop detected for property "state"
+libkcups: Renew-Subscription last error: 0 successful-ok
+qt.qpa.xcb: QXcbConnection: XCB error: 3 (BadWindow), sequence: 15939, resource id: 190840840, major code: 3 (GetWindowAttributes), minor code: 0
+qt.qpa.xcb: QXcbConnection: XCB error: 3 (BadWindow), sequence: 15940, resource id: 190840840, major code: 2 (ChangeWindowAttributes), minor code: 0
+qt.svg: <input>:303:258: Could not add child element to parent element because the types are incorrect.
+qt.svg: <input>:303:463: Could not add child element to parent element because the types are incorrect.
+qt.svg: <input>:303:659: Could not add child element to parent element because the types are incorrect.
+qt.svg: <input>:303:913: Could not add child element to parent element because the types are incorrect.
+qt.svg: <input>:303:1049: Could not add child element to parent element because the types are incorrect.
+qt.svg: <input>:303:1251: Could not add child element to parent element because the types are incorrect.
+qt.svg: <input>:303:1453: Could not add child element to parent element because the types are incorrect.
+qt.svg: <input>:303:1631: Could not add child element to parent element because the types are incorrect.
+qt.svg: <input>:303:1739: Could not add child element to parent element because the types are incorrect.
+qt.svg: <input>:303:1980: Could not add child element to parent element because the types are incorrect.
+qt.svg: <input>:303:2223: Could not add child element to parent element because the types are incorrect.
+qt.svg: <input>:303:258: Could not add child element to parent element because the types are incorrect.
+qt.svg: <input>:303:463: Could not add child element to parent element because the types are incorrect.
+qt.svg: <input>:303:659: Could not add child element to parent element because the types are incorrect.
+qt.svg: <input>:303:913: Could not add child element to parent element because the types are incorrect.
+qt.svg: <input>:303:1049: Could not add child element to parent element because the types are incorrect.
+qt.svg: <input>:303:1251: Could not add child element to parent element because the types are incorrect.
+qt.svg: <input>:303:1453: Could not add child element to parent element because the types are incorrect.
+qt.svg: <input>:303:1631: Could not add child element to parent element because the types are incorrect.
+qt.svg: <input>:303:1739: Could not add child element to parent element because the types are incorrect.
+qt.svg: <input>:303:1980: Could not add child element to parent element because the types are incorrect.
+qt.svg: <input>:303:2223: Could not add child element to parent element because the types are incorrect.

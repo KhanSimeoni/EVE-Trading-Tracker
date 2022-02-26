@@ -120,9 +120,9 @@ def run():
     # Create a game clock
     clock = pygame.time.Clock()
 
-    # test menu
-    test_menu = Menu(display, colors, (0, 0), (200, 450), "Test Window")
-    test_menu2 = Menu(display, colors, (300, 0), (200, 450), "Test Window 2")
+    # test menus
+    # test_menu = Menu(display, colors, (0, 0), (200, 450), "Test Window")
+    # test_menu2 = Menu(display, colors, (300, 0), (200, 450), "Test Window 2")
 
     # Variables for looping
     moving_menu_pos = None
@@ -158,15 +158,15 @@ def run():
             )
 
         # Update things in the frame
-        functions.updateObjects(
-            display,
-            BasicFunctions.flattenList(
-                [test_menu.getObjects(), test_menu2.getObjects()],
-            ),
-            BasicFunctions.flattenList(
-                [test_menu.getColors(), test_menu2.getColors()],
-            ),
-        )
+        # functions.updateObjects(
+        #     display,
+        #     BasicFunctions.flattenList(
+        #         [test_menu.getObjects(), test_menu2.getObjects()],
+        #     ),
+        #     BasicFunctions.flattenList(
+        #         [test_menu.getColors(), test_menu2.getColors()],
+        #     ),
+        # )
 
         # Update the screen and the objects on the screen
         pygame.display.update()
@@ -178,15 +178,15 @@ def run():
             if event.type == pygame.MOUSEBUTTONDOWN:
 
                 # If clicking on a menu get menu information for later use
-                if test_menu.header.collidepoint(pygame.mouse.get_pos()):
-                    moving_menu_mouse_init = pygame.mouse.get_pos()
-                    moving_menu = test_menu
-                    collided = True
+                # if test_menu.header.collidepoint(pygame.mouse.get_pos()):
+                #     moving_menu_mouse_init = pygame.mouse.get_pos()
+                #     moving_menu = test_menu
+                #     collided = True
 
-                elif test_menu2.header.collidepoint(pygame.mouse.get_pos()):
-                    moving_menu_mouse_init = pygame.mouse.get_pos()
-                    moving_menu = test_menu2
-                    collided = True
+                # elif test_menu2.header.collidepoint(pygame.mouse.get_pos()):
+                #     moving_menu_mouse_init = pygame.mouse.get_pos()
+                #     moving_menu = test_menu2
+                #     collided = True
 
                 # If collision detected with menu (above statement) get the menu position for later use
                 if collided:
