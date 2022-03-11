@@ -1,201 +1,323 @@
-# A GUI tool for tracking and calculating good EVE Online shipment routes
-# Written in pygame, and for use with pypy3
+from email import header
+from statistics import multimode
+from esipy import EsiApp
+from esipy import EsiClient
+from esipy import EsiSecurity
 
+from pathfinder import Route
+
+import time
 import sys
-import pygame
-
-from pygame.locals import *
-from operator import sub, add
-
-from screen_objects.star_map import StarMap
-from screen_objects.menu import Menu
+import pickle
 
 
-# Initialize pygame; REQUIRED BEFORE ANY PYGAME CODE
-pygame.init()
+def progress(count, total, status=""):
+    bar_len = 60
+    filled_len = int(round(bar_len * count / float(total)))
 
-# Constants
-WINDOW_SIZE = (800, 600)
-FPS = 60
+    percents = round(100.0 * count / float(total), 1)
+    bar = "*" * filled_len + "-" * (bar_len - filled_len)
 
-
-# Basic functions such as updating rendering
-class BasicFunctions:
-    def __init__(self):
-        pass
-
-    def updateRects(self, window, objects: list, colors: list):
-
-        # Draw every object in the objcts list
-        for object in objects:
-            object_id = objects.index(object)
-            pygame.draw.rect(window, colors[object_id], object)
-
-    def updateCircles(self, window, objects: list, color):
-        """
-        Update circle objects on the screen.
-        Objects parameter is in the following format:
-        [ ( (posX, posY), radius ), ... ]
-        """
-
-        # Draw every object in the objects list
-        for object in objects:
-            pygame.draw.circle(window, color, object[0], object[1])
-
-    def posMath(self, operation: int, pos1: tuple, pos2: tuple):
-        """
-        Does math to coordinates in tuple form, operator defined with an int
-        1: add
-        2: subtract
-        """
-
-        # Addition math
-        if operation == 1:
-            return tuple(map(add, pos1, pos2))
-
-        # Subtraction math
-        elif operation == 2:
-            return tuple(map(sub, pos1, pos2))
-
-    def flattenList(self, list):
-        return [item for sublist in list for item in sublist]
+    sys.stdout.write("[%s] %s%s %s\r" % (bar, percents, "%", status))
+    sys.stdout.flush()
 
 
-# Colors
-class Colors:
-    def __init__(self):
-        self.star = pygame.Color(255, 255, 255)
-        self.dark_background = pygame.Color(17, 7, 41)
-        self.light_background = pygame.Color(17, 0, 89)
-        self.dark_menu = pygame.Color(17, 0, 73)
-        self.light_menu = pygame.Color(17, 0, 95)
+# Create the ESI interface application and a client (currently a public client)
+esi_app = EsiApp()
+app = esi_app.get_latest_swagger
+
+# Log into ESI for application perms
+# security = EsiSecurity(
+#     redirect_uri="http://localhost:65432/callback",
+#     client_id="c6977cc398d94a4a966d2246e5c549e5",
+#     secret_key="2GdfCPX8EjHJLkMLfikNoJ5Q1q6LlcP5jEh3qIQu",
+#     header={
+#         "User-Agent": "A simple calculator for my EVE trucker needs - simeonikh@gmail.com - https://github.com/KhanSimeoni/EVE-Trading-Tracker"
+#     },
+# )
+
+# tokens = security.auth(
+#     code="S9fAItDklM5CaUW3pcHgnAWDP3kodE8poZo_YgtVCmAF6g8tA3nyGh1G-CFXNGSA"
+# )
+# print(tokens)
+# Load star system information from pickle file
+print("pickling")
+
+file = open("systems_data", "r+b")
+systems_data = pickle.load(file)
+file.close()
+
+file = open("regions", "r+b")
+all_regions = pickle.load(file)
+file.close()
+
+print("connecting to ESI")
+
+client = EsiClient(
+    retry_requests=True,  # set to retry on http 5xx error (default False)
+    headers={
+        "User-Agent": "Something CCP can use to contact you and that define your app"
+    },
+    raw_body_only=False,  # default False, set to True to never parse response and only return raw JSON string content.
+)
+
+# Get market orders for a region
 
 
-def run():
+def getItemOrders(item_id, do_all_regions=True, regions=None):
+    print("getting market orders")
+    buy_information = []
+    sell_information = []
+    counter = 0
+    total = len(all_regions)
 
-    # Get basic program functions
-    functions = BasicFunctions()
+    for region in all_regions:
 
-    # Get colors
-    colors = Colors()
+        systems_request_buy = app.op["get_markets_region_id_orders"](
+            region_id=region, order_type="buy", type_id=item_id
+        )
+        systems_request_sell = app.op["get_markets_region_id_orders"](
+            region_id=region, order_type="sell", type_id=item_id
+        )
 
-    # Createa blank display (like a canvas)
-    display = pygame.display.set_mode(WINDOW_SIZE)
+        orders_buy = client.request(systems_request_buy)
+        orders_sell = client.request(systems_request_sell)
 
-    # Create a game clock
-    clock = pygame.time.Clock()
-
-    # Create the star map object
-    star_map = StarMap(
-        [
-            (2.0474870725000893e17, 4.023837993657142e16),
-            (7.88723686175867e16, 1.7813654851733168e16),
-        ]
-    )
-
-    star_map_stars = []
-    star_map_objects = star_map.getStars()
-    for star_object in star_map_objects:
-        star_map_stars.append((star_object.pos, star_object.radius))
-
-    # test menus
-    test_menu = Menu(display, colors, (0, 0), (200, 450), "Test Window")
-    # test_menu2 = Menu(display, colors, (300, 0), (200, 450), "Test Window 2")
-
-    # Variables for looping
-    moving_menu_pos = None
-    moving_menu = None
-    moving_menu_init = None
-    moving_menu_mouse_init = None
-    collided = False
-
-    # Start the main event loop
-    running = True
-    while running:
-
-        # Clear the screen at the start of the frame
-        display.fill(colors.dark_background)
-
-        # Math for moving the active menu
-        if moving_menu_pos != None:
-            moving_menu_pos = moving_menu.getPos()
-            moving_menu.move(
-                functions.posMath(
-                    2,
-                    functions.posMath(
-                        2,
-                        pygame.mouse.get_pos(),
-                        moving_menu_mouse_init,
-                    ),
-                    functions.posMath(
-                        2,
-                        moving_menu_pos,
-                        moving_menu_init,
-                    ),
+        for order in orders_buy.data:
+            buy_information.append(
+                (
+                    order.get("price"),
+                    order.get("volume_remain"),
+                    order.get("system_id"),
+                    order.get("location_id"),
                 )
             )
 
-        # Update the star map
-        functions.updateCircles(
-            display,
-            star_map_stars,
-            colors.star,
+        for order in orders_sell.data:
+            sell_information.append(
+                (
+                    order.get("price"),
+                    order.get("volume_remain"),
+                    order.get("system_id"),
+                    order.get("location_id"),
+                )
+            )
+
+        counter += 1
+
+        buy_information.sort(None, True)
+        sell_information.sort()
+        buy_information = buy_information[0:19]
+        sell_information = sell_information[0:19]
+
+        progress(counter, total)
+
+    print()
+    return buy_information, sell_information
+
+
+def multiRoute(order_info):
+    end_system_request = app.op["get_universe_systems_system_id"](
+        system_id=order_info[4][0]
+    )
+    start_system_request = app.op["get_universe_systems_system_id"](
+        system_id=order_info[4][1]
+    )
+    start_system = client.request(start_system_request)
+    end_system = client.request(end_system_request)
+
+    end_constillation_request = app.op[
+        "get_universe_constellations_constellation_id",
+    ](constellation_id=end_system.data.get("constellation_id"))
+    start_constillation_request = app.op[
+        "get_universe_constellations_constellation_id",
+    ](constellation_id=start_system.data.get("constellation_id"))
+    start_constillation = client.request(start_constillation_request)
+    end_constillation = client.request(end_constillation_request)
+
+    page_num = 1
+    end_orders = []
+    start_orders = []
+    error = False
+    while not error:
+        end_orders_request = app.op["get_markets_region_id_orders"](
+            region_id=end_constillation.data.get("region_id"),
+            order_type="sell",
+            page=page_num,
+        )
+        start_orders_request = app.op["get_markets_region_id_orders"](
+            region_id=start_constillation.data.get("region_id"),
+            order_type="buy",
+            page=page_num,
+        )
+        end_orders_temp = client.request(end_orders_request)
+        start_orders_temp = client.request(start_orders_request)
+
+        try:
+            if end_orders_temp.data.get("error"):
+                error = True
+        except:
+            pass
+
+        for order in end_orders_temp.data:
+            end_orders.append(order)
+        for order in start_orders_temp.data:
+            start_orders.append(order)
+
+        page_num += 1
+
+    region_end_orders = []
+    region_start_orders = []
+    for order in end_orders:
+
+        try:
+            if order.get("system_id") == order_info[4][0]:
+                region_end_orders.append(order)
+        except:
+            pass
+
+    for order in start_orders:
+
+        try:
+            if order.get("system_id") == order_info[4][1]:
+                region_start_orders.append(order)
+        except:
+            pass
+
+    end_orders_info = []
+    start_orders_info = []
+
+    for order in region_end_orders:
+        end_orders_info.append(
+            (order.get("price"), order.get("volume_remain"), order.get("type_id"))
+        )
+    for order in region_start_orders:
+        start_orders_info.append(
+            (order.get("price"), order.get("volume_remain"), order.get("type_id"))
         )
 
-        # Update menus in frame
-        functions.updateRects(
-            display,
-            functions.flattenList(
-                [test_menu.getObjects()],
-            ),
-            functions.flattenList(
-                [test_menu.getColors()],
-            ),
-        )
+    end_orders_info = sorted(end_orders_info, key=lambda order: order[0] * order[1])
+    end_orders_info = sorted(end_orders_info, key=lambda order: order[2])
 
-        # Update the screen and the objects on the screen
-        pygame.display.update()
+    start_orders_info = sorted(
+        start_orders_info, key=lambda order: order[0] * order[1], reverse=True
+    )
+    start_orders_info = sorted(start_orders_info, key=lambda order: order[2])
 
-        # If the game is quite, exit pygame
-        for event in pygame.event.get():
+    new_orders = []
+    while len(end_orders_info) > 0:
+        st_order = end_orders_info[0]
+        ed_order = start_orders_info[0]
 
-            # If the mouse button is pressed
-            if event.type == pygame.MOUSEBUTTONDOWN:
+        if st_order[2] == ed_order[2]:
+            moveable_volume = min(st_order[1], st_order[1])
+            profit = round(
+                (ed_order[0] - st_order[0]) * moveable_volume,
+            )
 
-                # If clicking on a menu get menu information for later use
-                if test_menu.header.collidepoint(pygame.mouse.get_pos()):
-                    moving_menu_mouse_init = pygame.mouse.get_pos()
-                    moving_menu = test_menu
-                    collided = True
+            new_orders.append((profit, st_order[2], st_order[1]))
+            start_orders_info.pop(0)
+            # print("same")
 
-                # elif test_menu2.header.collidepoint(pygame.mouse.get_pos()):
-                #     moving_menu_mouse_init = pygame.mouse.get_pos()
-                #     moving_menu = test_menu2
-                #     collided = True
+        else:
+            if st_order[2] > ed_order[2]:
+                start_orders_info.pop(0)
+                # print("spop")
 
-                # If collision detected with menu (above statement) get the menu position for later use
-                if collided:
-                    moving_menu_init = moving_menu.getPos()
-                    moving_menu_pos = moving_menu.getPos()
+            elif st_order[2] < ed_order[2]:
+                end_orders_info.pop(0)
+                # print("epop")
 
-            # If no longer holding a menu, forget information about the menu
-            if event.type == pygame.MOUSEBUTTONUP:
-                moving_menu_pos = None
-                moving_menu = None
-                moving_menu_init = None
-                collided = False
+            else:
+                # print("what?")
+                return
 
-            # If the gam is quit, quit the game :)
-            if event.type == QUIT:
-                pygame.quit()
+    new_orders.sort(key=lambda order: order[0], reverse=True)
 
-                # Return of 0 means program exited correctly
-                return 0
-
-        # Run the game (and the clock) at the desired FPS
-        clock.tick(FPS)
+    return new_orders
 
 
-# Run the main event loop function
-if __name__ == "__main__":
-    sys.exit(run())
+# Calculate the profit and other info from the found buy and sell orders
+def profitCalculation(buy_info, sell_info):
+    print("procesing")
+
+    counter = 0
+    percentage = 0
+    total_counts = len(buy_info) * len(sell_info)
+
+    progress(counter, total_counts)
+
+    profits = []
+    for buy_order in buy_info:
+        for sell_order in sell_info:
+
+            route_map = Route()
+            route = route_map.findRoute(buy_order[2], sell_order[2])
+            start_and_end = (sell_order[2], buy_order[2])
+
+            if route:
+                route_length = len(route)
+            else:
+                route_length = 0
+
+            moveable_volume = min(buy_order[1], sell_order[1])
+            profit = round(
+                (buy_order[0] - sell_order[0]) * moveable_volume,
+            )
+
+            profits.append(
+                (
+                    profit,
+                    route_length,
+                    round(profit / route_length),
+                    moveable_volume,
+                    start_and_end,
+                )
+            )
+
+            counter += 1
+            progress(counter, total_counts)
+
+        profits.sort(key=lambda order: order[0], reverse=True)
+
+    return profits
+
+
+def calculate(item_id):
+    buy_info, sell_info = getItemOrders(item_id)
+    profit = profitCalculation(buy_info, sell_info)
+    profit.sort(None, True)
+    # other_sales = multiRoute(profit[0][4][0], profit[0][4][0])
+    top_ten = profit[0:9]
+    return top_ten
+
+
+# Manual scan
+standup_light_guided_bomb = 47816
+gleam_medium_frequency_crystal = 12826
+
+# slgb_top_ten = calculate(standup_light_guided_bomb)
+
+# print()
+# print("standup_light_guided_bomb")
+# print(slgb_top_ten)
+
+gmfc_top_ten = calculate(gleam_medium_frequency_crystal)
+
+print()
+print("gleam_medium_frequency_crystal")
+print(gmfc_top_ten)
+
+print("multi-routing: order 1, route 1")
+slgb_multi = multiRoute(gmfc_top_ten[0])
+print(slgb_multi[0:9])
+
+print("multi-routing: order 1, route 2")
+slgb_multi = multiRoute(gmfc_top_ten[1])
+print(slgb_multi[0:9])
+
+print("multi-routing: order 1, route 3")
+slgb_multi = multiRoute(gmfc_top_ten[2])
+print(slgb_multi[0:9])
+
+# print("Profit: ", "0$ ", "Distance: ", "0 jumps ", "Profit Per Jump: ", "0$")
